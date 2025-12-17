@@ -1,82 +1,67 @@
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch
-from reportlab.lib.utils import ImageReader
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 import arabic_reshaper
 from bidi.algorithm import get_display
 from utils.logger import setup_logger
-from PIL import Image, ImageDraw, ImageFont
-import io
 import os
 
 logger = setup_logger(__name__)
 
 class ArabicPDFGenerator:
-    """Generate PDF with proper Arabic text rendering using PIL"""
+    """Generate PDF with proper Arabic text rendering"""
     
     def __init__(self, output_path):
         self.output_path = output_path
         self.page_width, self.page_height = A4
         self.margin = 50
-        self.line_height = 30
-        self.font_size = 20
+        self.line_height = 20
+        self.font_size = 12
+        self.font_name = "Amiri"
+        self._setup_arabic_font()
         
+    def _setup_arabic_font(self):
+        """Register Arabic font from local file or Windows fonts"""
+        try:
+            # Try project fonts folder first
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+            fonts_dir = os.path.join(project_root, 'fonts')
+            font_path = os.path.join(fonts_dir, 'Amiri-Regular.ttf')
+            
+            if os.path.exists(font_path):
+                logger.info(f"Using Arabic font from: {font_path}")
+                pdfmetrics.registerFont(TTFont(self.font_name, font_path))
+                logger.info("Arabic font registered successfully")
+                return
+            
+            # Try Windows fonts as fallback
+            windows_fonts = [
+                "C:/Windows/Fonts/tahoma.ttf",
+                "C:/Windows/Fonts/tahomabd.ttf",
+                "C:/Windows/Fonts/arial.ttf",
+                "C:/Windows/Fonts/arialbd.ttf",
+            ]
+            
+            for win_font in windows_fonts:
+                if os.path.exists(win_font):
+                    logger.info(f"Using Windows font: {win_font}")
+                    pdfmetrics.registerFont(TTFont(self.font_name, win_font))
+                    logger.info("Windows Arabic font registered successfully")
+                    return
+            
+            raise Exception("No Arabic font found. Please add Amiri-Regular.ttf to fonts/ folder")
+            
+        except Exception as e:
+            logger.error(f"Failed to setup Arabic font: {str(e)}")
+            raise
+    
     def _prepare_arabic_text(self, text):
         """Reshape and reorder Arabic text for proper RTL display"""
         reshaped_text = arabic_reshaper.reshape(text)
         bidi_text = get_display(reshaped_text)
         return bidi_text
-    
-    def _create_text_image(self, text, width):
-        """Create image from Arabic text"""
-        prepared_text = self._prepare_arabic_text(text)
-        
-        # Create a temporary image to measure text
-        temp_img = Image.new('RGB', (1, 1), 'white')
-        temp_draw = ImageDraw.Draw(temp_img)
-        
-        # Try to use system Arabic font, fallback to default
-        try:
-            # Try Windows Arabic font
-            font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", self.font_size)
-        except:
-            try:
-                # Alternative: Segoe UI
-                font = ImageFont.truetype("C:/Windows/Fonts/segoeui.ttf", self.font_size)
-            except:
-                # Last fallback
-                font = ImageFont.load_default()
-        
-        # Split text into lines
-        lines = prepared_text.split('\n')
-        
-        # Calculate image height needed
-        total_height = 0
-        line_heights = []
-        for line in lines:
-            if line.strip():
-                bbox = temp_draw.textbbox((0, 0), line, font=font)
-                line_height = bbox[3] - bbox[1] + 10
-            else:
-                line_height = self.line_height
-            line_heights.append(line_height)
-            total_height += line_height
-        
-        # Create actual image
-        img = Image.new('RGB', (int(width), max(int(total_height), 100)), 'white')
-        draw = ImageDraw.Draw(img)
-        
-        # Draw text lines (right-aligned for Arabic)
-        y_position = 0
-        for line, line_height in zip(lines, line_heights):
-            if line.strip():
-                bbox = draw.textbbox((0, 0), line, font=font)
-                text_width = bbox[2] - bbox[0]
-                x_position = width - text_width - 10  # Right align
-                draw.text((x_position, y_position), line, font=font, fill='black')
-            y_position += line_height
-        
-        return img
     
     def generate_pdf(self, translated_pages, progress_callback=None):
         """Generate PDF with Arabic text"""
@@ -100,35 +85,61 @@ class ArabicPDFGenerator:
             raise
     
     def _add_page(self, canvas_obj, text, page_number):
-        """Add a single page with Arabic text as image"""
-        # Calculate usable width
-        usable_width = self.page_width - (2 * self.margin)
+        """Add a single page with selectable Arabic text"""
+        canvas_obj.setFont(self.font_name, self.font_size)
         
-        # Create text image
-        text_img = self._create_text_image(text, usable_width)
+        # Prepare text for RTL rendering
+        prepared_text = self._prepare_arabic_text(text)
         
-        # Convert PIL image to ReportLab ImageReader
-        img_buffer = io.BytesIO()
-        text_img.save(img_buffer, format='PNG')
-        img_buffer.seek(0)
-        img_reader = ImageReader(img_buffer)
+        # Starting position (top-right for RTL)
+        x = self.page_width - self.margin
+        y = self.page_height - self.margin
         
-        # Calculate position (top of page)
-        y_position = self.page_height - self.margin - text_img.height
+        # Maximum width for text
+        max_width = self.page_width - (2 * self.margin)
         
-        # If image is too tall, scale it down
-        if text_img.height > (self.page_height - 2 * self.margin - 50):
-            scale_factor = (self.page_height - 2 * self.margin - 50) / text_img.height
-            new_height = text_img.height * scale_factor
-            new_width = text_img.width * scale_factor
-            canvas_obj.drawImage(img_reader, self.margin, self.margin + 50, 
-                               width=new_width, height=new_height)
-        else:
-            canvas_obj.drawImage(img_reader, self.margin, y_position, 
-                               width=text_img.width, height=text_img.height)
+        # Split into lines
+        lines = prepared_text.split('\n')
+        
+        for line in lines:
+            if not line.strip():
+                y -= self.line_height  # Empty line
+                continue
+            
+            # Simple word wrapping
+            words = line.split(' ')
+            current_line = []
+            
+            for word in words:
+                test_line = ' '.join(current_line + [word])
+                text_width = canvas_obj.stringWidth(test_line, self.font_name, self.font_size)
+                
+                if text_width <= max_width:
+                    current_line.append(word)
+                else:
+                    if current_line:
+                        # Draw the line
+                        if y < self.margin + 50:
+                            canvas_obj.showPage()
+                            canvas_obj.setFont(self.font_name, self.font_size)
+                            y = self.page_height - self.margin
+                        
+                        canvas_obj.drawRightString(x, y, ' '.join(current_line))
+                        y -= self.line_height
+                    current_line = [word]
+            
+            # Draw remaining words
+            if current_line:
+                if y < self.margin + 50:
+                    canvas_obj.showPage()
+                    canvas_obj.setFont(self.font_name, self.font_size)
+                    y = self.page_height - self.margin
+                
+                canvas_obj.drawRightString(x, y, ' '.join(current_line))
+                y -= self.line_height
         
         # Add page number
-        canvas_obj.setFont("Helvetica", 10)
-        canvas_obj.drawCentredString(self.page_width / 2, 30, f"Page {page_number}")
+        canvas_obj.setFont(self.font_name, 10)
+        canvas_obj.drawCentredString(self.page_width / 2, 30, f"صفحة {page_number}")
         
         canvas_obj.showPage()

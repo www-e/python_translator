@@ -11,3 +11,4 @@ googletrans==4.0.0rc1
 # Utilities
 tqdm==4.66.1
 pillow==10.1.0
+requests==2.31.0

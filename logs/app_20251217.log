@@ -1,0 +1,41 @@
+2025-12-17 19:47:29 - pdf_translator - INFO - Starting PDF Translator Application
+2025-12-17 19:47:29 - gui.main_window - INFO - Starting GUI application
+2025-12-17 19:47:43 - core.pdf_extractor - INFO - Extracting text from: D:/yousef/englishfile.pdf
+2025-12-17 19:47:43 - core.pdf_extractor - INFO - Total pages: 1
+2025-12-17 19:47:43 - core.pdf_extractor - INFO - Successfully extracted text from 1 pages
+2025-12-17 19:47:43 - core.translator - INFO - Translator initialized
+2025-12-17 19:47:43 - core.translator - INFO - Translating page 1/1
+2025-12-17 19:47:43 - core.translator - INFO - Translating text of length: 58
+2025-12-17 19:47:43 - core.translator - INFO - Translation completed successfully
+2025-12-17 19:47:43 - core.pdf_generator - INFO - Downloading Arabic font (Amiri)...
+2025-12-17 19:47:44 - core.pdf_generator - ERROR - Failed to setup Arabic font: Failed to download font
+2025-12-17 19:47:44 - gui.main_window - ERROR - Translation failed: Arabic font is required for selectable text. Please check your internet connection.
+Traceback (most recent call last):
+  File "D:\yousef\pythontranslate\src\core\pdf_generator.py", line 48, in _setup_arabic_font
+    raise Exception("Failed to download font")
+Exception: Failed to download font
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\yousef\pythontranslate\src\gui\main_window.py", line 209, in _translate_pdf
+    generator = ArabicPDFGenerator(self.output_file.get())
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\yousef\pythontranslate\src\core\pdf_generator.py", line 24, in __init__
+    self._setup_arabic_font()
+  File "D:\yousef\pythontranslate\src\core\pdf_generator.py", line 56, in _setup_arabic_font
+    raise Exception("Arabic font is required for selectable text. Please check your internet connection.")
+Exception: Arabic font is required for selectable text. Please check your internet connection.
+2025-12-17 19:49:00 - pdf_translator - INFO - Starting PDF Translator Application
+2025-12-17 19:49:00 - gui.main_window - INFO - Starting GUI application
+2025-12-17 19:49:06 - core.pdf_extractor - INFO - Extracting text from: D:/yousef/englishfile.pdf
+2025-12-17 19:49:06 - core.pdf_extractor - INFO - Total pages: 1
+2025-12-17 19:49:06 - core.pdf_extractor - INFO - Successfully extracted text from 1 pages
+2025-12-17 19:49:06 - core.translator - INFO - Translator initialized
+2025-12-17 19:49:06 - core.translator - INFO - Translating page 1/1
+2025-12-17 19:49:06 - core.translator - INFO - Translating text of length: 58
+2025-12-17 19:49:07 - core.translator - INFO - Translation completed successfully
+2025-12-17 19:49:07 - core.pdf_generator - INFO - Using Arabic font from: D:\yousef\pythontranslate\fonts\Amiri-Regular.ttf
+2025-12-17 19:49:07 - core.pdf_generator - INFO - Arabic font registered successfully
+2025-12-17 19:49:07 - core.pdf_generator - INFO - Generating Arabic PDF: D:/yousef/englishfile_arabic.pdf
+2025-12-17 19:49:07 - core.pdf_generator - INFO - PDF generated successfully: D:/yousef/englishfile_arabic.pdf
