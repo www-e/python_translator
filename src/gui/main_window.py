@@ -6,6 +6,7 @@ from config import WINDOW_TITLE, WINDOW_SIZE, THEME_COLOR
 from core.pdf_extractor import PDFExtractor
 from core.translator import OfflineTranslator
 from core.pdf_generator import ArabicPDFGenerator
+from core.word_generator import WordDocumentGenerator
 from utils.validators import validate_pdf_file, validate_output_path, ValidationError
 from utils.logger import setup_logger
 
@@ -22,7 +23,7 @@ class PDFTranslatorApp:
         
         # Variables
         self.input_file = tk.StringVar()
-        self.output_file = tk.StringVar()
+        self.output_format = tk.StringVar(value='pdf')  # pdf or docx
         self.status_text = tk.StringVar(value="Ready")
         self.progress_var = tk.DoubleVar(value=0)
         
@@ -45,7 +46,7 @@ class PDFTranslatorApp:
         # Title
         title_label = ttk.Label(
             main_frame,
-            text="English to Arabic PDF Translator",
+            text="English to Arabic Translator",
             font=("Arial", 16, "bold")
         )
         title_label.grid(row=0, column=0, columnspan=3, pady=(0, 20))
@@ -61,21 +62,22 @@ class PDFTranslatorApp:
             row=1, column=2, pady=5
         )
         
-        # Output file section
-        ttk.Label(main_frame, text="Output PDF (Arabic):").grid(
+        # Output format section
+        ttk.Label(main_frame, text="Output Format:").grid(
             row=2, column=0, sticky=tk.W, pady=5
         )
-        ttk.Entry(main_frame, textvariable=self.output_file, width=50).grid(
-            row=2, column=1, sticky=(tk.W, tk.E), pady=5, padx=5
-        )
-        ttk.Button(main_frame, text="Browse", command=self._browse_output).grid(
-            row=2, column=2, pady=5
-        )
+        format_frame = ttk.Frame(main_frame)
+        format_frame.grid(row=2, column=1, sticky=tk.W, pady=5, padx=5)
+        
+        ttk.Radiobutton(format_frame, text="PDF", variable=self.output_format, 
+                       value='pdf').pack(side=tk.LEFT, padx=10)
+        ttk.Radiobutton(format_frame, text="Word (.docx)", variable=self.output_format, 
+                       value='docx').pack(side=tk.LEFT, padx=10)
         
         # Translate button
         self.translate_btn = ttk.Button(
             main_frame,
-            text="Translate PDF",
+            text="Translate and Convert",
             command=self._start_translation,
             style="Accent.TButton"
         )
@@ -125,19 +127,6 @@ class PDFTranslatorApp:
         )
         if filename:
             self.input_file.set(filename)
-            # Auto-set output filename
-            base_name = os.path.splitext(filename)[0]
-            self.output_file.set(f"{base_name}_arabic.pdf")
-    
-    def _browse_output(self):
-        """Browse for output PDF location"""
-        filename = filedialog.asksaveasfilename(
-            title="Save Arabic PDF As",
-            defaultextension=".pdf",
-            filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
-        )
-        if filename:
-            self.output_file.set(filename)
     
     def _log(self, message):
         """Add message to log text area"""
@@ -156,7 +145,6 @@ class PDFTranslatorApp:
         # Validate inputs
         try:
             validate_pdf_file(self.input_file.get())
-            validate_output_path(self.output_file.get())
         except ValidationError as e:
             messagebox.showerror("Validation Error", str(e))
             return
@@ -184,8 +172,8 @@ class PDFTranslatorApp:
             
             # Initialize translator if needed
             if not self.translator:
-                self.status_text.set("Initializing offline translator...")
-                self._log("Initializing translator (first-time may download models)...")
+                self.status_text.set("Initializing translator...")
+                self._log("Initializing translator...")
                 self.translator = OfflineTranslator()
                 self._log("Translator ready")
             
@@ -202,18 +190,38 @@ class PDFTranslatorApp:
             )
             self._update_progress(2, 3)
             
-            # Generate PDF
-            self.status_text.set("Generating Arabic PDF...")
-            self._log("Generating Arabic PDF...")
+            # Generate output file
+            output_format = self.output_format.get()
             
-            generator = ArabicPDFGenerator(self.output_file.get())
-            generator.generate_pdf(translated_pages)
+            # Get output filename
+            base_name = os.path.splitext(self.input_file.get())[0]
+            
+            if output_format == 'pdf':
+                output_file = f"{base_name}_arabic.pdf"
+                self.status_text.set("Generating Arabic PDF...")
+                self._log("Generating Arabic PDF...")
+                
+                generator = ArabicPDFGenerator(output_file)
+                generator.generate_pdf(translated_pages)
+                
+            else:  # docx
+                output_file = f"{base_name}_arabic.docx"
+                self.status_text.set("Generating Word Document...")
+                self._log("Generating Word Document...")
+                
+                generator = WordDocumentGenerator(output_file)
+                generator.generate_document(translated_pages)
+            
             self._update_progress(3, 3)
             
             # Success
             self.status_text.set("Translation completed successfully!")
-            self._log(f"✓ Translation complete: {self.output_file.get()}")
-            messagebox.showinfo("Success", f"PDF translated successfully!\n\nSaved to:\n{self.output_file.get()}")
+            format_name = "PDF" if output_format == 'pdf' else "Word Document"
+            self._log(f"✓ Translation complete: {output_file}")
+            messagebox.showinfo(
+                "Success", 
+                f"{format_name} created successfully!\n\nSaved to:\n{output_file}"
+            )
             
         except Exception as e:
             self.status_text.set("Translation failed")

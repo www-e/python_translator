@@ -5,6 +5,9 @@ reportlab==4.0.7
 arabic-reshaper==3.0.0
 python-bidi==0.4.2
 
+# Word Document Processing
+python-docx==0.8.11
+
 # Translation
 googletrans==4.0.0rc1
 
